@@ -1,5 +1,6 @@
 # Bongo
 Quantum Hardware Digital Twin for Noisy Workloads
+```
       .-------------.           .-------------.
      /               \         /               \
     |=================|-------|=================|
@@ -8,3 +9,4 @@ Quantum Hardware Digital Twin for Noisy Workloads
       \             /           \             /
        \           /             \           /
         |_________|               |_________|
+```
