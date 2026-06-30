@@ -1,0 +1,24 @@
+# Local instructions, not shared project source
+CLAUDE.md
+
+# Virtual environment
+.venv/
+
+# Regenerable experiment artifacts (repo-root only — not src/qel_twin/data/)
+/data/
+/results/
+
+# Python
+__pycache__/
+*.pyc
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store

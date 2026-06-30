@@ -1,0 +1,36 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "qel-twin"
+version = "0.1.0"
+description = "Device-specific digital twin of a noisy quantum hardware backend"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "numpy>=1.26",
+    "scipy>=1.14",
+    "pyyaml>=6.0",
+    "torch>=2.0.0",
+    "matplotlib>=3.8",
+    "mqt-yaqs",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.6",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/qel_twin"]
+
+[tool.uv]
+required-version = ">=0.5.20"
+
+[tool.uv.sources]
+mqt-yaqs = { path = "../yaqs", editable = true }
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
