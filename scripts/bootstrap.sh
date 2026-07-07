@@ -13,7 +13,7 @@ warn()  { echo -e "${YELLOW}==>${NC} $1"; }
 error() { echo -e "${RED}==>${NC} $1" >&2; }
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-YAQS_DIR="$(cd "${REPO_ROOT}/.." && pwd)/yaqs"
+YAQS_DIR="$(cd "${REPO_ROOT}/.." && pwd)/yaqs-char"
 YAQS_REMOTE="https://github.com/munich-quantum-toolkit/yaqs.git"
 YAQS_BRANCH="char"
 
@@ -70,30 +70,30 @@ fi
 
 # --- 3. Create venv ----------------------------------------------------------
 
-if [ ! -x "${REPO_ROOT}/.venv/bin/python" ]; then
-    info "Creating virtual environment at ${REPO_ROOT}/.venv ..."
-    uv venv --python 3.11 "${REPO_ROOT}/.venv"
+if [ ! -x "${REPO_ROOT}/../qel_env/bin/python" ]; then
+    info "Creating virtual environment at ${REPO_ROOT}/../qel_env ..."
+    uv venv --python 3.11 "${REPO_ROOT}/../qel_env"
 else
-    info "Virtual environment already exists at ${REPO_ROOT}/.venv, skipping creation."
+    info "Virtual environment already exists at ${REPO_ROOT}/../qel_env, skipping creation."
 fi
 
-export VIRTUAL_ENV="${REPO_ROOT}/.venv"
-export UV_PROJECT_ENVIRONMENT="${REPO_ROOT}/.venv"
+export VIRTUAL_ENV="${REPO_ROOT}/../qel_env"
+export UV_PROJECT_ENVIRONMENT="${REPO_ROOT}/../qel_env"
 
 # --- 4. Install dependencies --------------------------------------------------
 
 info "Installing ${YAQS_DIR} (editable)..."
-uv pip install --python "${REPO_ROOT}/.venv/bin/python" -e "${YAQS_DIR}"
+uv pip install --python "${REPO_ROOT}/../qel_env/bin/python" -e "${YAQS_DIR}"
 
 info "Installing ${REPO_ROOT} (editable)..."
-uv pip install --python "${REPO_ROOT}/.venv/bin/python" -e "${REPO_ROOT}"
+uv pip install --python "${REPO_ROOT}/../qel_env/bin/python" --no-deps -e "${REPO_ROOT}"
 
 # --- 5. Smoke test -------------------------------------------------------------
 
 info "Running smoke test..."
-if "${REPO_ROOT}/.venv/bin/python" "${REPO_ROOT}/scripts/smoke_test.py"; then
+if "${REPO_ROOT}/../qel_env/bin/python" "${REPO_ROOT}/scripts/smoke_test.py"; then
     info "Smoke test passed. Bootstrap complete."
-    info "Activate the environment with: source ${REPO_ROOT}/.venv/bin/activate"
+    info "Activate the environment with: source ${REPO_ROOT}/../qel_env/bin/activate"
 else
     error "Smoke test failed. See output above for details."
     exit 1
