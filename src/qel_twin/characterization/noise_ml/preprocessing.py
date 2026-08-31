@@ -17,7 +17,7 @@ import numpy as np
 if TYPE_CHECKING:
     from numpy.typing import NDArray
 
-    from mqt.yaqs.characterization.noise.ml.models import ModelName
+    from qel_twin.characterization.noise_ml.models import ModelName
 
 
 @dataclass(frozen=True, slots=True)

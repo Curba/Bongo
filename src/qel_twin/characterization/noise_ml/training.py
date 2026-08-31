@@ -16,15 +16,15 @@ from typing import TYPE_CHECKING, Any, cast
 
 import numpy as np
 
-from mqt.yaqs.characterization.noise.ml.dataset import (
+from qel_twin.characterization.noise_ml.dataset import (
     DEFAULT_GAMMA_MAX,
     DEFAULT_GAMMA_MIN,
     NoiseDataset,
     Parameterization,
     parameter_names,
 )
-from mqt.yaqs.characterization.noise.ml.models import ModelName, build_regression_model
-from mqt.yaqs.characterization.noise.ml.preprocessing import DatasetSplit, TrajectoryPreprocessor
+from qel_twin.characterization.noise_ml.models import ModelName, build_regression_model
+from qel_twin.characterization.noise_ml.preprocessing import DatasetSplit, TrajectoryPreprocessor
 
 from ._torch import require_torch
 

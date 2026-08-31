@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from mqt.yaqs.characterization.noise.ml.results import MLNoiseCharacterizationResult
+    from qel_twin.characterization.noise_ml.results import MLNoiseCharacterizationResult
 
 
 def plot_trajectory_overlay(

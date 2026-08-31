@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 import pytest
 
-from mqt.yaqs.characterization.noise.ml import (
+from qel_twin.characterization.noise_ml import (
     NoiseDataset,
     NoiseExperiment,
     build_pauli_xyz_noise_model,

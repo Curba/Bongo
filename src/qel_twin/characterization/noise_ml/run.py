@@ -13,14 +13,14 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from mqt.yaqs.characterization.noise.ml.dataset import NoiseExperiment, parameter_names
-from mqt.yaqs.characterization.noise.ml.reconstruction import compute_trajectory_metrics, reconstruct_dynamics
-from mqt.yaqs.characterization.noise.ml.results import MLNoiseCharacterizationResult
+from qel_twin.characterization.noise_ml.dataset import NoiseExperiment, parameter_names
+from qel_twin.characterization.noise_ml.reconstruction import compute_trajectory_metrics, reconstruct_dynamics
+from qel_twin.characterization.noise_ml.results import MLNoiseCharacterizationResult
 
 if TYPE_CHECKING:
     from numpy.typing import NDArray
 
-    from mqt.yaqs.characterization.noise.ml.training import TrainedNoiseModel
+    from qel_twin.characterization.noise_ml.training import TrainedNoiseModel
 
 
 class MLNoiseCharacterizer:

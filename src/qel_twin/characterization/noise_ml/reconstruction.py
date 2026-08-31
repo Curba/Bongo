@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from mqt.yaqs.characterization.noise.ml.dataset import NoiseExperiment, Parameterization, simulate_pauli_xyz
+from qel_twin.characterization.noise_ml.dataset import NoiseExperiment, Parameterization, simulate_pauli_xyz
 
 if TYPE_CHECKING:
     from numpy.typing import NDArray
