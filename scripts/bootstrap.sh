@@ -19,6 +19,13 @@ YAQS_BRANCH="main"
 
 cd "${REPO_ROOT}"
 
+# YAQS uses Numba functions with on-disk caching enabled. Its editable sibling
+# checkout may be read-only (for example in CI or a managed coding sandbox), so
+# ensure the repository-local cache configured by .numba_config.yaml exists.
+NUMBA_CACHE_DIR="${REPO_ROOT}/.cache/numba"
+mkdir -p "${NUMBA_CACHE_DIR}"
+export NUMBA_CACHE_DIR
+
 # --- 1. Check prerequisites -------------------------------------------------
 
 if ! command -v git >/dev/null 2>&1; then
