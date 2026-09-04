@@ -28,4 +28,4 @@ bash scripts/bootstrap.sh
 source .venv/bin/activate
 ```
 
-`bootstrap.sh` clones YAQS as a sibling directory (`../yaqs/`), creates a `.venv`, installs both packages editable, and runs a smoke test.
+`bootstrap.sh` clones the YAQS `main` branch as a sibling directory (`../yaqs/`), creates a `.venv`, installs both packages editable, and runs a smoke test.
