@@ -29,3 +29,9 @@ source .venv/bin/activate
 ```
 
 `bootstrap.sh` clones the YAQS `main` branch as a sibling directory (`../yaqs/`), creates a `.venv`, installs both packages editable, and runs a smoke test.
+
+Run Python commands from the repository root. The checked-in
+`.numba_config.yaml` directs YAQS/Numba compilation artifacts to the writable,
+gitignored `.cache/numba/` directory. `bootstrap.sh` creates that directory and
+exports the same setting for its smoke test, including in environments where the
+editable sibling YAQS checkout is read-only.

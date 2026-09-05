@@ -1,0 +1,14 @@
+output_dir: outputs/ml_runs
+seed: 1234
+
+models:
+  - dummy_mean
+  - ridge
+  - knn
+  - svr_rbf
+  - extra_trees
+  - random_forest
+  - hist_gradient_boosting
+  - gaussian_process
+  - chain_ridge
+  - xgboost

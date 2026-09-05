@@ -7,6 +7,7 @@ CLAUDE.md
 # Regenerable experiment artifacts (repo-root only — not src/qel_twin/data/)
 /data/
 /results/
+/outputs/
 
 # Python
 __pycache__/
