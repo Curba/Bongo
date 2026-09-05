@@ -8,7 +8,6 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-
 PARAMS = ["gamma_x", "gamma_y", "gamma_z"]
 SPLITS = ["train", "val", "test"]
 
@@ -26,6 +25,16 @@ def read_json(path: Path) -> dict[str, Any]:
         return {}
     with open(path, "r", encoding="utf-8") as f:
         return json.load(f)
+
+
+def load_parameter_names(run: RunRef) -> list[str]:
+    """Load target names recorded by a run, with legacy global fallback."""
+    metadata = read_json(run.path / "run_metadata.json")
+    metrics = read_json(run.path / "metrics.json")
+    names = metadata.get("parameter_names") or metrics.get("parameter_names")
+    if isinstance(names, list) and names and all(isinstance(name, str) for name in names):
+        return names
+    return PARAMS.copy()
 
 
 def scan_runs(results_root: str | Path) -> list[RunRef]:
@@ -111,6 +120,7 @@ def load_metrics_for_run(run: RunRef) -> pd.DataFrame:
     metadata = read_json(run.path / "run_metadata.json")
 
     rows = []
+    parameter_names = load_parameter_names(run)
 
     for split in SPLITS:
         key = f"{split}_metrics"
@@ -134,7 +144,7 @@ def load_metrics_for_run(run: RunRef) -> pd.DataFrame:
             "created_at": metadata.get("created_at", ""),
         }
 
-        for p in PARAMS:
+        for p in parameter_names:
             row[f"{p}_mae_log10"] = m.get(f"{p}_mae_log10", np.nan)
             row[f"{p}_rmse_log10"] = m.get(f"{p}_rmse_log10", np.nan)
             row[f"{p}_r2_log10"] = m.get(f"{p}_r2_log10", np.nan)

@@ -134,13 +134,13 @@ def abs_error_histogram(pred_df: pd.DataFrame, param: str) -> go.Figure:
     return fig
 
 
-def relative_error_box(pred_df: pd.DataFrame) -> go.Figure:
+def relative_error_box(pred_df: pd.DataFrame, parameter_names: list[str] | None = None) -> go.Figure:
     if pred_df.empty:
         return empty_figure("No prediction data found.")
 
     rows = []
 
-    for p in PARAMS:
+    for p in parameter_names or PARAMS:
         col = f"{p}_relative_error"
         if col not in pred_df.columns:
             continue
@@ -174,10 +174,10 @@ def relative_error_box(pred_df: pd.DataFrame) -> go.Figure:
     return fig
 
 
-def per_target_metrics(metrics_row: pd.Series) -> go.Figure:
+def per_target_metrics(metrics_row: pd.Series, parameter_names: list[str] | None = None) -> go.Figure:
     rows = []
 
-    for p in PARAMS:
+    for p in parameter_names or PARAMS:
         rows.append(
             {
                 "parameter": p,

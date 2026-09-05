@@ -2,12 +2,12 @@ from __future__ import annotations
 
 import numpy as np
 import pandas as pd
-
 from dash import Input, Output
 
 from qel_twin.visualization.ml_dashboard.data_loader import (
     get_run,
     load_all_metrics,
+    load_parameter_names,
     load_predictions,
     load_training_history,
 )
@@ -71,6 +71,20 @@ def register_callbacks(app, runs):
         value = run_ids[0] if run_ids else None
 
         return options, value
+
+    @app.callback(
+        Output("param-dropdown", "options"),
+        Output("param-dropdown", "value"),
+        Input("dataset-dropdown", "value"),
+        Input("model-dropdown", "value"),
+        Input("run-dropdown", "value"),
+    )
+    def update_parameters(dataset, model, run_id):
+        if not dataset or not model or not run_id:
+            return [], None
+        run = get_run(runs, dataset=dataset, model=model, run_id=run_id)
+        parameter_names = load_parameter_names(run)
+        return [{"label": name, "value": name} for name in parameter_names], parameter_names[0]
 
     @app.callback(
         Output("kpi-cards", "children"),
@@ -148,6 +162,7 @@ def register_callbacks(app, runs):
         )
 
         run = get_run(runs, dataset=dataset, model=model, run_id=run_id)
+        parameter_names = load_parameter_names(run)
 
         pred_df = load_predictions(run, split=split)
         history_df = load_training_history(run)
@@ -155,8 +170,8 @@ def register_callbacks(app, runs):
         fig_scatter_log = true_vs_pred_log(pred_df, param)
         fig_scatter_gamma = true_vs_pred_gamma(pred_df, param)
         fig_abs_error = abs_error_histogram(pred_df, param)
-        fig_rel_box = relative_error_box(pred_df)
-        fig_per_target = per_target_metrics(selected_metrics)
+        fig_rel_box = relative_error_box(pred_df, parameter_names)
+        fig_per_target = per_target_metrics(selected_metrics, parameter_names)
         fig_history = training_history_figure(history_df)
 
         table_df = dataset_split_metrics.copy()
