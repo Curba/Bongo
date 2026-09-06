@@ -93,7 +93,7 @@ info "Installing ${YAQS_DIR} (editable)..."
 uv pip install --python "${REPO_ROOT}/../qel_env/bin/python" -e "${YAQS_DIR}"
 
 info "Installing ${REPO_ROOT} (editable)..."
-uv pip install --python "${REPO_ROOT}/../qel_env/bin/python" --no-deps -e "${REPO_ROOT}"
+uv pip install --python "${REPO_ROOT}/../qel_env/bin/python" -e "${REPO_ROOT}"
 
 # --- 5. Smoke test -------------------------------------------------------------
 

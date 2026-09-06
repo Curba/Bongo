@@ -10,7 +10,7 @@ import joblib
 import numpy as np
 from sklearn.ensemble import ExtraTreesRegressor
 from sklearn.linear_model import Ridge
-from sklearn.multioutput import RegressorChain
+from sklearn.multioutput import MultiOutputRegressor, RegressorChain
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 
@@ -93,6 +93,7 @@ def train_classical_noise_model(
     pca_components: int = 64,
     n_estimators: int = 500,
     run_tag: str | None = None,
+    n_jobs: int | None = None,
 ) -> dict[str, Any]:
     """Train any existing Bongo classical model directly on qel-ml ``(N,O,T)`` data."""
     if model_name not in AVAILABLE_MODELS:
@@ -152,8 +153,24 @@ def train_classical_noise_model(
         pca_components=safe_pca_components,
         n_estimators=n_estimators,
     )
+    if n_jobs is not None:
+        if isinstance(n_jobs, bool) or not isinstance(n_jobs, int) or n_jobs < 1:
+            raise ValueError("n_jobs must be a positive integer")
+        # Parallelize only a top-level estimator, never both targets and estimators.
+        job_params = {
+            key: 1 for key in model.get_params(deep=True)
+            if key == "n_jobs" or key.endswith("__n_jobs")
+        }
+        if "n_jobs" in job_params and not isinstance(model, MultiOutputRegressor):
+            job_params["n_jobs"] = n_jobs
+        model.set_params(**job_params)
 
     run_metadata = {
+        "n_jobs_requested": n_jobs,
+        "parallelism_params": {
+            key: value for key, value in model.get_params(deep=True).items()
+            if key == "n_jobs" or key.endswith("__n_jobs")
+        },
         "created_at": datetime.now().isoformat(timespec="seconds"),
         "run_id": run_id,
         "dataset_id": dataset_id,
