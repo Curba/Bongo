@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from pathlib import Path
 from typing import Any
 
@@ -144,10 +145,10 @@ def create_layout(data_root: str, output_root: str):
                                             clearable=False,
                                         ),
                                     ),
-                                    _field("γ minimum", _number("ds-gamma-min", 1e-3, min_value=1e-12, step=1e-3)),
-                                    _field("γ maximum", _number("ds-gamma-max", 1e-1, min_value=1e-12, step=1e-2)),
-                                    _field("Elapsed time", _number("ds-elapsed-time", 5.0, min_value=0.01, step=0.1)),
-                                    _field("dt", _number("ds-dt", 0.1, min_value=1e-5, step=0.01)),
+                                    _field("γ minimum", _number("ds-gamma-min", 1e-3, min_value=0, step="any")),
+                                    _field("γ maximum", _number("ds-gamma-max", 1e-1, min_value=0, step="any")),
+                                    _field("Elapsed time", _number("ds-elapsed-time", 5.0, min_value=0, step="any")),
+                                    _field("dt", _number("ds-dt", 0.1, min_value=0, step="any")),
                                     _field(
                                         "YAQS method",
                                         dcc.Dropdown(
@@ -176,8 +177,8 @@ def create_layout(data_root: str, output_root: str):
                                         "Density-matrix mode automatically uses one trajectory.",
                                     ),
                                     _field("Initial state", _text("ds-initial-state", "zeros")),
-                                    _field("Ising J", _number("ds-j", 1.0, step=0.1)),
-                                    _field("Transverse field g", _number("ds-g", 1.0, step=0.1)),
+                                    _field("Ising J", _number("ds-j", 1.0, step="any")),
+                                    _field("Transverse field g", _number("ds-g", 1.0, step="any")),
                                     _field("Seed", _number("ds-seed", 1234, min_value=0, step=1)),
                                     _field("Trotter order", _number("ds-order", 2, min_value=1, step=1)),
                                     _field("TDVP sweeps", _number("ds-tdvp-sweeps", 1, min_value=1, step=1)),
@@ -196,11 +197,13 @@ def create_layout(data_root: str, output_root: str):
                                     ),
                                     _field(
                                         "Parallel YAQS trajectories",
-                                        dcc.Checklist(
-                                            id="ds-parallel",
-                                            options=[{"label": "Enable", "value": "parallel"}],
-                                            value=[],
-                                        ),
+                                        dcc.Checklist(id="ds-parallel", options=[{"label": "Enable", "value": "parallel"}], value=["parallel"]),
+                                        "Parallelize stochastic YAQS trajectories across CPU workers.",
+                                    ),
+                                    _field(
+                                        "CPU workers",
+                                        _number("ds-max-workers", max(1, (os.cpu_count() or 2) - 1), min_value=1, max_value=os.cpu_count() or 1, step=1),
+                                        "Maximum YAQS worker processes. Default = logical CPUs minus one.",
                                     ),
                                 ],
                                 className="form-grid",
@@ -312,11 +315,11 @@ def create_layout(data_root: str, output_root: str):
                                     _field("Epochs", _number("train-epochs", 150, min_value=1, step=10)),
                                     _field("Patience", _number("train-patience", 20, min_value=1, step=1)),
                                     _field("Batch size", _number("train-batch-size", 32, min_value=1, step=1)),
-                                    _field("Learning rate", _number("learning-rate", 1e-3, min_value=1e-8, step=1e-4)),
-                                    _field("Weight decay", _number("weight-decay", 1e-4, min_value=0, step=1e-5)),
+                                    _field("Learning rate", _number("learning-rate", 1e-3, min_value=0, step="any")),
+                                    _field("Weight decay", _number("weight-decay", 1e-4, min_value=0, step="any")),
                                     _field("LSTM hidden size", _number("hidden-size", 128, min_value=1, step=16)),
                                     _field("LSTM layers", _number("num-layers", 2, min_value=1, step=1)),
-                                    _field("Dropout", _number("dropout", 0.1, min_value=0, max_value=0.9, step=0.05)),
+                                    _field("Dropout", _number("dropout", 0.1, min_value=0, max_value=0.9, step="any")),
                                     _field("Device", _text("train-device", "", "Blank = auto, or cpu / cuda")),
                                 ],
                                 className="form-grid",
@@ -480,49 +483,52 @@ def create_layout(data_root: str, output_root: str):
 
 def register_callbacks(app: Dash, *, data_root: str, output_root: str) -> None:
     @app.callback(
-        Output("dataset-job-store", "data"),
-        Output("dataset-job-status", "children"),
+        Output("dataset-job-store", "data"), Output("dataset-job-status", "children"),
         Input("generate-dataset-btn", "n_clicks"),
         State("ds-name", "value"), State("ds-output", "value"), State("ds-samples", "value"), State("ds-sites", "value"),
         State("ds-channels", "value"), State("ds-parameterization", "value"), State("ds-gamma-min", "value"), State("ds-gamma-max", "value"),
         State("ds-elapsed-time", "value"), State("ds-dt", "value"), State("ds-method", "value"), State("ds-preset", "value"),
         State("ds-num-traj", "value"), State("ds-initial-state", "value"), State("ds-j", "value"), State("ds-g", "value"),
         State("ds-seed", "value"), State("ds-order", "value"), State("ds-tdvp-sweeps", "value"), State("ds-tdvp-mode", "value"),
-        State("ds-parallel", "value"),
-        prevent_initial_call=True,
+        State("ds-parallel", "value"), State("ds-max-workers", "value"), prevent_initial_call=True,
     )
-    def start_dataset_job(n_clicks, name, output, samples, sites, channels, parameterization, gamma_min, gamma_max, elapsed_time, dt, method, preset, num_traj, initial_state, j_coupling, transverse_field, seed, order, tdvp_sweeps, tdvp_mode, parallel_values):
+    def start_dataset_job(n_clicks, name, output, samples, sites, channels, parameterization, gamma_min, gamma_max, elapsed_time, dt, method, preset, num_traj, initial_state, j_coupling, transverse_field, seed, order, tdvp_sweeps, tdvp_mode, parallel_values, max_workers):
         if not n_clicks:
             return no_update, no_update
+
+        required = {
+            "Samples": samples, "Sites / qubits": sites, "γ minimum": gamma_min, "γ maximum": gamma_max,
+            "Elapsed time": elapsed_time, "dt": dt, "Trajectories": num_traj, "Ising J": j_coupling,
+            "Transverse field g": transverse_field, "Seed": seed, "Trotter order": order,
+            "TDVP sweeps": tdvp_sweeps, "CPU workers": max_workers,
+        }
+        missing = [label for label, value in required.items() if value is None]
+        if missing:
+            return no_update, "Invalid dataset configuration. Check: " + ", ".join(missing)
+
         try:
+            gamma_min, gamma_max = float(gamma_min), float(gamma_max)
+            elapsed_time, dt = float(elapsed_time), float(dt)
+            if gamma_min <= 0: return no_update, "γ minimum must be greater than zero."
+            if gamma_max <= gamma_min: return no_update, "γ maximum must be greater than γ minimum."
+            if elapsed_time <= 0: return no_update, "Elapsed time must be greater than zero."
+            if dt <= 0: return no_update, "dt must be greater than zero."
+            if dt > elapsed_time: return no_update, "dt cannot be larger than elapsed time."
+            if int(max_workers) < 1: return no_update, "CPU workers must be at least 1."
+
             config = {
-                "dataset_name": name,
-                "output_path": output,
-                "num_samples": int(samples),
-                "num_sites": int(sites),
-                "channels": channels or [],
-                "parameterization": parameterization,
-                "gamma_min": float(gamma_min),
-                "gamma_max": float(gamma_max),
-                "elapsed_time": float(elapsed_time),
-                "dt": float(dt),
-                "method": method,
-                "preset": preset,
-                "num_traj": int(num_traj),
-                "initial_state": initial_state,
-                "j_coupling": float(j_coupling),
-                "transverse_field": float(transverse_field),
-                "seed": int(seed),
-                "order": int(order),
-                "tdvp_sweeps": int(tdvp_sweeps),
-                "tdvp_mode": tdvp_mode,
-                "parallel": "parallel" in (parallel_values or []),
-                "show_progress": False,
+                "dataset_name": name, "output_path": output, "num_samples": int(samples), "num_sites": int(sites),
+                "channels": channels or [], "parameterization": parameterization, "gamma_min": gamma_min, "gamma_max": gamma_max,
+                "elapsed_time": elapsed_time, "dt": dt, "method": method, "preset": preset, "num_traj": int(num_traj),
+                "initial_state": initial_state, "j_coupling": float(j_coupling), "transverse_field": float(transverse_field),
+                "seed": int(seed), "order": int(order), "tdvp_sweeps": int(tdvp_sweeps), "tdvp_mode": tdvp_mode,
+                "parallel": "parallel" in (parallel_values or []), "max_workers": int(max_workers), "show_progress": False,
             }
-        except Exception as exc:
+        except (TypeError, ValueError) as exc:
             return no_update, f"Invalid dataset configuration: {exc}"
+
         job_id = JOB_MANAGER.submit("dataset", create_dataset_job, data_root=data_root, config=config)
-        return {"job_id": job_id}, "Dataset job queued."
+        return {"job_id": job_id}, f"Dataset job queued · parallel={config['parallel']} · workers={config['max_workers']}"
 
     @app.callback(
         Output("training-job-store", "data"),

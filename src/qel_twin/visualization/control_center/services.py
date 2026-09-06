@@ -218,9 +218,22 @@ def create_dataset_job(*, data_root: str | Path, config: dict[str, Any]) -> dict
     if float(config["gamma_max"]) <= float(config["gamma_min"]):
         raise ValueError("gamma_max must be larger than gamma_min.")
 
+    elapsed_time, dt = float(config["elapsed_time"]), float(config["dt"])
+    if elapsed_time <= 0: raise ValueError("elapsed_time must be positive.")
+    if dt <= 0: raise ValueError("dt must be positive.")
+    if dt > elapsed_time: raise ValueError("dt cannot be larger than elapsed_time.")
+    if config.get("parallel", False):
+        if config.get("max_workers") is None: raise ValueError("Parallel execution requires max_workers.")
+        if int(config["max_workers"]) < 1: raise ValueError("max_workers must be at least 1.")
+
     dataset_name = safe_slug(config.get("dataset_name", "noise_dataset"))
     output_value = str(config.get("output_path", "")).strip()
-    output_path = Path(output_value) if output_value else data_root / f"{dataset_name}.npz"
+    if not output_value:
+        output_path = data_root / f"{dataset_name}.npz"
+    else:
+        requested_path = Path(output_value).expanduser()
+        output_path = requested_path if requested_path.suffix.lower() == ".npz" else requested_path / f"{dataset_name}.npz"
+    output_path.parent.mkdir(parents=True, exist_ok=True)
     experiment_config = dict(config)
     experiment_config["channels"] = channels
     experiment = build_experiment_from_config(experiment_config)
