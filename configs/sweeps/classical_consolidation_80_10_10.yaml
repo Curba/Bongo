@@ -1,0 +1,22 @@
+dataset_path: data/noise_datasets/local_5q_1000.npz
+baseline_root: outputs/ml_runs/local_5q_1000_80_10_10/baselines/local_5q_1000
+pilot_report: outputs/ml_runs/local_5q_1000_80_10_10/tuning/svr_rbf/report.json
+pilot_reports:
+  svr_rbf: outputs/ml_runs/local_5q_1000_80_10_10/tuning/svr_rbf/report.json
+  hist_gradient_boosting: outputs/ml_runs/local_5q_1000_80_10_10/tuning/hist_gradient_boosting/report.json
+tuned_output: outputs/ml_runs/local_5q_1000_80_10_10_tuned
+manifest_path: results/classical_final_models_80_10_10.json
+threads: 2
+blas_threads: 1
+reconstruction_samples: 15
+models:
+  dummy_mean: baseline
+  ridge: baseline
+  knn: baseline
+  svr_rbf: pilot
+  extra_trees: baseline
+  random_forest: baseline
+  hist_gradient_boosting: pilot
+  gaussian_process: baseline
+  chain_ridge: baseline
+  xgboost: baseline

@@ -1,7 +1,6 @@
-"""Smoke test: proves the bootstrap environment can run a tiny YAQS simulation.
+"""Smoke test: prove the bootstrap environment can run a tiny YAQS simulation.
 
-Mirrors the working pattern in ../yaqs/experiments/generate_ising_tjm_data.py
-(branch: char) — same imports, same AnalogSimParams fields, same solver.
+This uses the class-based API from the required YAQS ``main`` branch.
 """
 
 from __future__ import annotations
@@ -11,11 +10,7 @@ import sys
 
 def main() -> int:
     try:
-        from mqt.yaqs import simulator
-        from mqt.yaqs.core.data_structures.networks import MPO, MPS
-        from mqt.yaqs.core.data_structures.noise_model import NoiseModel
-        from mqt.yaqs.core.data_structures.simulation_parameters import AnalogSimParams, Observable
-        from mqt.yaqs.core.libraries.gate_library import Z
+        from mqt.yaqs import AnalogSimParams, Hamiltonian, NoiseModel, Observable, Simulator, State
     except ImportError as exc:
         print(f"FAIL: could not import mqt.yaqs ({exc}). Is ../yaqs/ installed editable?", file=sys.stderr)
         return 1
@@ -25,28 +20,28 @@ def main() -> int:
         j_coupling = 1.0
         transverse_field = 1.0
 
-        hamiltonian = MPO.ising(length, j_coupling, transverse_field)
-        initial_state = MPS(length, state="zeros")
+        hamiltonian = Hamiltonian.ising(length, J=j_coupling, g=transverse_field)
+        initial_state = State(length, initial="zeros", representation="density_matrix")
 
-        noise_processes = [{"name": "z", "sites": [i], "strength": 1e-2} for i in range(length)]
+        noise_processes = [{"name": "pauli_z", "sites": [i], "strength": 1e-2} for i in range(length)]
         noise_model = NoiseModel(processes=noise_processes)
 
-        observables = [Observable(Z(), sites=i) for i in range(length)]
+        observables = [Observable("z", sites=i) for i in range(length)]
         sim_params = AnalogSimParams(
             observables=observables,
-            elapsed_time=0.5,
-            dt=0.25,
-            solver="TJM",
-            threshold=1e-3,
-            max_bond_dim=4,
-            num_traj=5,
-            sample_timesteps=True,
-            show_progress=False,
+            elapsed_time=0.1,
+            dt=0.1,
+            num_traj=1,
+            preset="exact",
         )
 
-        simulator.run(initial_state, hamiltonian, sim_params, noise_model)
-
-        final_value = sim_params.sorted_observables[0].results[-1]
+        result = Simulator(parallel=False, show_progress=False).run(
+            initial_state,
+            hamiltonian,
+            sim_params,
+            noise_model,
+        )
+        final_value = result.expectation_values[0][-1]
     except Exception as exc:  # noqa: BLE001
         print(f"FAIL: YAQS simulation raised an error ({exc})", file=sys.stderr)
         return 1

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# One-command setup: clone YAQS (char branch), create venv, install editable, smoke test.
+# One-command setup: clone YAQS (main branch), create venv, install editable, smoke test.
 # Safe to re-run: skips steps whose result already exists.
 set -euo pipefail
 
@@ -13,11 +13,18 @@ warn()  { echo -e "${YELLOW}==>${NC} $1"; }
 error() { echo -e "${RED}==>${NC} $1" >&2; }
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-YAQS_DIR="$(cd "${REPO_ROOT}/.." && pwd)/yaqs-char"
+YAQS_DIR="$(cd "${REPO_ROOT}/.." && pwd)/yaqs"
 YAQS_REMOTE="https://github.com/munich-quantum-toolkit/yaqs.git"
-YAQS_BRANCH="char"
+YAQS_BRANCH="main"
 
 cd "${REPO_ROOT}"
+
+# YAQS uses Numba functions with on-disk caching enabled. Its editable sibling
+# checkout may be read-only (for example in CI or a managed coding sandbox), so
+# ensure the repository-local cache configured by .numba_config.yaml exists.
+NUMBA_CACHE_DIR="${REPO_ROOT}/.cache/numba"
+mkdir -p "${NUMBA_CACHE_DIR}"
+export NUMBA_CACHE_DIR
 
 # --- 1. Check prerequisites -------------------------------------------------
 
@@ -63,7 +70,7 @@ else
     CURRENT_BRANCH="$(git -C "${YAQS_DIR}" rev-parse --abbrev-ref HEAD 2>/dev/null || echo unknown)"
     if [ "${CURRENT_BRANCH}" != "${YAQS_BRANCH}" ]; then
         warn "${YAQS_DIR} is on branch '${CURRENT_BRANCH}', not '${YAQS_BRANCH}'."
-        warn "qel_twin/physics/ targets the API on '${YAQS_BRANCH}' (custom MPO/MPS/simulator.run, characterization module)."
+        warn "qel-twin targets the YAQS API on '${YAQS_BRANCH}'."
         warn "If this is unexpected, run: git -C ${YAQS_DIR} checkout ${YAQS_BRANCH}"
     fi
 fi
@@ -86,7 +93,7 @@ info "Installing ${YAQS_DIR} (editable)..."
 uv pip install --python "${REPO_ROOT}/../qel_env/bin/python" -e "${YAQS_DIR}"
 
 info "Installing ${REPO_ROOT} (editable)..."
-uv pip install --python "${REPO_ROOT}/../qel_env/bin/python" --no-deps -e "${REPO_ROOT}"
+uv pip install --python "${REPO_ROOT}/../qel_env/bin/python" -e "${REPO_ROOT}"
 
 # --- 5. Smoke test -------------------------------------------------------------
 

@@ -43,6 +43,7 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import PolynomialFeatures, StandardScaler
 from sklearn.svm import LinearSVR, NuSVR, SVR
 from sklearn.tree import DecisionTreeRegressor
+from xgboost import XGBRegressor
 
 
 PARAM_NAMES = ["gamma_x", "gamma_y", "gamma_z"]
@@ -72,6 +73,7 @@ AVAILABLE_MODELS = [
     "extra_trees",
     "gradient_boosting",
     "hist_gradient_boosting",
+    "xgboost",
     "adaboost",
     "bagging_trees",
     "chain_ridge",
@@ -604,6 +606,17 @@ def build_model(
             random_state=seed,
         )
         return MultiOutputRegressor(base)
+
+    if model_name == "xgboost":
+        return XGBRegressor(
+            n_estimators=500,
+            learning_rate=0.04,
+            max_depth=6,
+            tree_method="hist",
+            multi_strategy="multi_output_tree",
+            random_state=seed,
+            n_jobs=-1,
+        )
 
     if model_name == "adaboost":
         base = AdaBoostRegressor(

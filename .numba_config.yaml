@@ -1,0 +1,5 @@
+# YAQS is installed from an editable sibling checkout. In restricted or read-only
+# environments Numba cannot write its compiled cache beside the YAQS source, so
+# keep the cache in this repository instead. Numba loads this file automatically
+# when commands are run from the project root.
+cache_dir: .cache/numba

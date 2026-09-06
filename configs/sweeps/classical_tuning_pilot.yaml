@@ -1,0 +1,34 @@
+dataset_path: data/noise_datasets/local_5q_1000.npz
+output_dir: results/classical_tuning_pilot
+feature_mode: flatten
+seed: 1234
+cv_seed: 2026
+train_fraction: 0.6
+validation_fraction: 0.2
+folds: 5
+threads: 2
+models:
+  knn:
+    baseline_run: outputs/ml_runs/local_5q_1000/knn/2026-09-04_22-19-50_seed1234
+    trials: 40
+    space:
+      model__n_neighbors: {type: int, low: 1, high: 40}
+      model__weights: {type: categorical, choices: [uniform, distance]}
+      model__p: {type: categorical, choices: [1, 2]}
+  svr_rbf:
+    baseline_run: outputs/ml_runs/local_5q_1000/svr_rbf/2026-09-04_22-19-50_seed1234
+    trials: 60
+    space:
+      model__estimator__C: {type: float, low: 0.1, high: 1000.0, log: true}
+      model__estimator__epsilon: {type: float, low: 0.001, high: 0.3, log: true}
+      model__estimator__gamma: {type: float, low: 0.00001, high: 0.1, log: true}
+      pca__n_components: {type: categorical, choices: [16, 32, 64, 128]}
+  hist_gradient_boosting:
+    baseline_run: outputs/ml_runs/local_5q_1000/hist_gradient_boosting/2026-09-04_22-20-01_seed1234
+    trials: 40
+    space:
+      estimator__learning_rate: {type: float, low: 0.01, high: 0.2, log: true}
+      estimator__max_iter: {type: int, low: 200, high: 1000}
+      estimator__max_leaf_nodes: {type: categorical, choices: [7, 15, 31, 63]}
+      estimator__min_samples_leaf: {type: int, low: 5, high: 60}
+      estimator__l2_regularization: {type: float, low: 0.000001, high: 10.0, log: true}

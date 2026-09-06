@@ -1,0 +1,57 @@
+dataset_path: data/noise_datasets/local_5q_1000.npz
+expected_samples: 1000
+output_dir: outputs/ml_runs/local_5q_1000_80_10_10
+feature_mode: flatten
+seed: 1234
+cv_seed: 2026
+train_fraction: 0.8
+validation_fraction: 0.1
+folds: 5
+baseline_threads: 4
+blas_threads: 1
+baseline_models:
+  - dummy_mean
+  - ridge
+  - knn
+  - svr_rbf
+  - extra_trees
+  - random_forest
+  - hist_gradient_boosting
+  - gaussian_process
+  - chain_ridge
+  - xgboost
+tuning:
+  svr_rbf:
+    threads: 2
+    trials: 20
+    early_stopping_patience: 20
+    space:
+      model__estimator__C: {type: float, low: 300.0, high: 3000.0, log: true}
+      model__estimator__epsilon: {type: float, low: 0.001, high: 0.3, log: true}
+      model__estimator__gamma: {type: float, low: 0.00001, high: 0.001, log: true}
+      pca__n_components: {type: categorical, choices: [16, 32, 64]}
+  hist_gradient_boosting:
+    threads: 2
+    trials: 20
+    early_stopping_patience: 10
+    space:
+      estimator__learning_rate: {type: float, low: 0.02, high: 0.08, log: true}
+      estimator__max_leaf_nodes: {type: categorical, choices: [7, 15]}
+      estimator__min_samples_leaf: {type: int, low: 5, high: 15}
+      estimator__l2_regularization: {type: float, low: 0.001, high: 1.0, log: true}
+      estimator__max_iter: {type: int, low: 600, high: 1000}
+  xgboost:
+    threads: 4
+    trials: 12
+    early_stopping_patience: 8
+    fixed_params:
+      n_jobs: 4
+      tree_method: hist
+      multi_strategy: multi_output_tree
+    space:
+      n_estimators: {type: int, low: 200, high: 800}
+      max_depth: {type: int, low: 3, high: 10}
+      learning_rate: {type: float, low: 0.01, high: 0.3, log: true}
+      subsample: {type: float, low: 0.5, high: 1.0}
+      colsample_bytree: {type: float, low: 0.5, high: 1.0}
+      reg_lambda: {type: float, low: 0.001, high: 10.0, log: true}

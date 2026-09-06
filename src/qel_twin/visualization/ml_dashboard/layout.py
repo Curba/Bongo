@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dash import dcc, html, dash_table
+from dash import dash_table, dcc, html
 
 
 def metric_card(title: str, value: str) -> html.Div:
@@ -85,12 +85,8 @@ def create_layout(datasets: list[str]) -> html.Div:
                             html.Label("Target"),
                             dcc.Dropdown(
                                 id="param-dropdown",
-                                options=[
-                                    {"label": "gamma_x", "value": "gamma_x"},
-                                    {"label": "gamma_y", "value": "gamma_y"},
-                                    {"label": "gamma_z", "value": "gamma_z"},
-                                ],
-                                value="gamma_x",
+                                options=[],
+                                value=None,
                                 clearable=False,
                             ),
                         ],

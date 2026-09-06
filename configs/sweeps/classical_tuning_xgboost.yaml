@@ -1,0 +1,24 @@
+dataset_path: data/noise_datasets/local_5q_1000.npz
+output_dir: results/classical_tuning_xgboost
+feature_mode: flatten
+seed: 1234
+cv_seed: 2026
+train_fraction: 0.6
+validation_fraction: 0.2
+folds: 5
+threads: 2
+early_stopping_patience: 10
+models:
+  xgboost:
+    baseline_run: outputs/ml_runs/local_5q_1000/xgboost/2026-09-04_22-20-41_seed1234
+    trials: 15
+    fixed_params:
+      tree_method: hist
+      multi_strategy: multi_output_tree
+    space:
+      n_estimators: {type: int, low: 200, high: 800}
+      max_depth: {type: int, low: 3, high: 10}
+      learning_rate: {type: float, low: 0.01, high: 0.3, log: true}
+      subsample: {type: float, low: 0.5, high: 1.0}
+      colsample_bytree: {type: float, low: 0.5, high: 1.0}
+      reg_lambda: {type: float, low: 0.001, high: 10.0, log: true}

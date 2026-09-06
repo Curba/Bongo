@@ -1,0 +1,29 @@
+dataset_id: local_timing_5q_10_tjm
+output_path: ../../data/noise_datasets/local_timing_5q_10_tjm.npz
+
+num_samples: 10
+num_sites: 5
+channels: [x, y, z]
+parameterization: local
+gamma_min: 1.0e-4
+gamma_max: 1.0e-2
+seed: 1234
+
+elapsed_time: 5.0
+dt: 0.1
+method: tjm
+preset: fast
+num_traj: 100
+initial_state: zeros
+j_coupling: 1.0
+transverse_field: 1.0
+order: 2
+tdvp_sweeps: 1
+tdvp_mode: 2site
+parallel: false
+max_workers: null
+show_progress: false
+svd_threshold: null
+max_bond_dim: null
+
+yaqs_checkout: ../../../yaqs
