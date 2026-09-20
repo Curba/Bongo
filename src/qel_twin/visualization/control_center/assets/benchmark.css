@@ -1,0 +1,46 @@
+.benchmark-model-list {
+  max-height: 360px;
+  overflow-y: auto;
+  padding: 10px 12px;
+  border: 1px solid #233044;
+  border-radius: 10px;
+  background: #0d1521;
+}
+
+.benchmark-model-list label {
+  display: block;
+  margin: 6px 0;
+  line-height: 1.35;
+}
+
+.benchmark-actions,
+.benchmark-result-selector {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: end;
+}
+
+.benchmark-actions {
+  margin-top: 14px;
+}
+
+.benchmark-action {
+  margin-left: 0;
+}
+
+.benchmark-result-selector .field {
+  min-width: min(420px, 100%);
+  flex: 1 1 320px;
+}
+
+.benchmark-results {
+  margin-top: 16px;
+}
+
+@media (max-width: 720px) {
+  .benchmark-actions > button,
+  .benchmark-result-selector > button {
+    width: 100%;
+  }
+}

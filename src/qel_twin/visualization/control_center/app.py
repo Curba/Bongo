@@ -10,6 +10,7 @@ import numpy as np
 import plotly.graph_objects as go
 from dash import Dash, Input, Output, State, dash_table, dcc, html, no_update
 
+from .benchmark import create_benchmark_tab, register_benchmark_callbacks
 from .services import (
     JOB_MANAGER,
     available_model_options,
@@ -23,7 +24,6 @@ from .services import (
     train_model_job,
 )
 
-
 PLOT_LAYOUT = {
     "paper_bgcolor": "rgba(0,0,0,0)",
     "plot_bgcolor": "rgba(0,0,0,0)",
@@ -33,6 +33,7 @@ PLOT_LAYOUT = {
     "yaxis": {"gridcolor": "#233044", "zerolinecolor": "#233044"},
     "legend": {"orientation": "h", "y": 1.12, "x": 0},
 }
+
 
 
 def _empty_figure(title: str) -> go.Figure:
@@ -97,8 +98,8 @@ def _metric_card(title: str, component_id: str, subtitle: str = ""):
     )
 
 
-def create_layout(data_root: str, output_root: str):
-    dataset_tab = html.Div(
+def _dataset_tab():
+    return html.Div(
         [
             html.Div(
                 [
@@ -112,10 +113,7 @@ def create_layout(data_root: str, output_root: str):
                             html.Div(
                                 [
                                     _field("Dataset name", _text("ds-name", "noise_global_5q")),
-                                    _field(
-                                        "Output path (optional)",
-                                        _text("ds-output", "", "Blank = data root / dataset name"),
-                                    ),
+                                    _field("Output path (optional)", _text("ds-output", "", "Blank = data root / dataset name")),
                                     _field("Samples", _number("ds-samples", 100, min_value=3, step=1)),
                                     _field("Sites / qubits", _number("ds-sites", 5, min_value=1, step=1)),
                                     _field(
@@ -171,11 +169,7 @@ def create_layout(data_root: str, output_root: str):
                                             clearable=False,
                                         ),
                                     ),
-                                    _field(
-                                        "Trajectories",
-                                        _number("ds-num-traj", 100, min_value=1, step=1),
-                                        "Density-matrix mode automatically uses one trajectory.",
-                                    ),
+                                    _field("Trajectories", _number("ds-num-traj", 100, min_value=1, step=1)),
                                     _field("Initial state", _text("ds-initial-state", "zeros")),
                                     _field("Ising J", _number("ds-j", 1.0, step="any")),
                                     _field("Transverse field g", _number("ds-g", 1.0, step="any")),
@@ -197,13 +191,21 @@ def create_layout(data_root: str, output_root: str):
                                     ),
                                     _field(
                                         "Parallel YAQS trajectories",
-                                        dcc.Checklist(id="ds-parallel", options=[{"label": "Enable", "value": "parallel"}], value=["parallel"]),
-                                        "Parallelize stochastic YAQS trajectories across CPU workers.",
+                                        dcc.Checklist(
+                                            id="ds-parallel",
+                                            options=[{"label": "Enable", "value": "parallel"}],
+                                            value=["parallel"],
+                                        ),
                                     ),
                                     _field(
                                         "CPU workers",
-                                        _number("ds-max-workers", max(1, (os.cpu_count() or 2) - 1), min_value=1, max_value=os.cpu_count() or 1, step=1),
-                                        "Maximum YAQS worker processes. Default = logical CPUs minus one.",
+                                        _number(
+                                            "ds-max-workers",
+                                            max(1, (os.cpu_count() or 2) - 1),
+                                            min_value=1,
+                                            max_value=os.cpu_count() or 1,
+                                            step=1,
+                                        ),
                                     ),
                                 ],
                                 className="form-grid",
@@ -265,7 +267,9 @@ def create_layout(data_root: str, output_root: str):
         className="tab-content",
     )
 
-    training_tab = html.Div(
+
+def _training_tab():
+    return html.Div(
         [
             html.Div(
                 [
@@ -291,11 +295,7 @@ def create_layout(data_root: str, output_root: str):
                                     _field("Seed", _number("train-seed", 1234, min_value=0, step=1)),
                                     _field("Train fraction", _number("train-fraction", 0.60, min_value=0.05, max_value=0.90, step=0.05)),
                                     _field("Validation fraction", _number("validation-fraction", 0.20, min_value=0.05, max_value=0.45, step=0.05)),
-                                    _field(
-                                        "Reconstruction samples",
-                                        _number("reconstruction-samples", 3, min_value=1, step=1),
-                                        "At least one held-out trajectory is always reconstructed.",
-                                    ),
+                                    _field("Reconstruction samples", _number("reconstruction-samples", 3, min_value=1, step=1)),
                                     _field(
                                         "Feature mode",
                                         dcc.Dropdown(
@@ -350,14 +350,6 @@ def create_layout(data_root: str, output_root: str):
                                 "Parameter error is diagnostic. Reconstructed-trajectory fidelity is the primary digital-twin metric.",
                                 className="callout",
                             ),
-                            html.Div(
-                                [
-                                    html.Div([html.Strong("Classical"), html.P("Ridge, KNN, SVR, Extra Trees, Random Forest, boosting, chains, and the existing Bongo registry.")], className="mini-card"),
-                                    html.Div([html.Strong("qel-ml Torch"), html.P("MLP and 2D CNN using observable × time trajectories.")], className="mini-card"),
-                                    html.Div([html.Strong("Sequence"), html.P("LSTM and BiLSTM using (N,O,T) → (N,T,O).")], className="mini-card"),
-                                ],
-                                className="mini-grid",
-                            ),
                         ],
                         className="panel",
                     ),
@@ -368,7 +360,9 @@ def create_layout(data_root: str, output_root: str):
         className="tab-content",
     )
 
-    results_tab = html.Div(
+
+def _results_tab():
+    return html.Div(
         [
             html.Div(
                 [
@@ -444,6 +438,8 @@ def create_layout(data_root: str, output_root: str):
         className="tab-content",
     )
 
+
+def create_layout(data_root: str, output_root: str):
     return html.Div(
         [
             dcc.Store(id="dataset-job-store"),
@@ -455,7 +451,12 @@ def create_layout(data_root: str, output_root: str):
                     html.Div(
                         [
                             html.Div("QEL", className="brand-mark"),
-                            html.Div([html.H1("Twin Control Center"), html.P("Dataset → training → YAQS reconstruction", className="brand-subtitle")]),
+                            html.Div(
+                                [
+                                    html.H1("Twin Control Center"),
+                                    html.P("Dataset → training → YAQS reconstruction → benchmark", className="brand-subtitle"),
+                                ]
+                            ),
                         ],
                         className="brand",
                     ),
@@ -470,9 +471,11 @@ def create_layout(data_root: str, output_root: str):
                 id="main-tabs",
                 value="dataset",
                 children=[
-                    dcc.Tab(label="1 · Dataset", value="dataset", children=dataset_tab),
-                    dcc.Tab(label="2 · Train", value="train", children=training_tab),
-                    dcc.Tab(label="3 · Results", value="results", children=results_tab),
+                    dcc.Tab(label="1 · Dataset", value="dataset", children=_dataset_tab()),
+                    dcc.Tab(label="2 · Train", value="train", children=_training_tab()),
+                    dcc.Tab(label="3 · Results", value="results", children=_results_tab()),
+                    # CHANGED: fourth tab uses the new benchmark module.
+                    dcc.Tab(label="4 · Benchmark", value="benchmark", children=create_benchmark_tab()),
                 ],
                 className="tabs",
             ),
@@ -483,50 +486,56 @@ def create_layout(data_root: str, output_root: str):
 
 def register_callbacks(app: Dash, *, data_root: str, output_root: str) -> None:
     @app.callback(
-        Output("dataset-job-store", "data"), Output("dataset-job-status", "children"),
+        Output("dataset-job-store", "data"),
+        Output("dataset-job-status", "children"),
         Input("generate-dataset-btn", "n_clicks"),
         State("ds-name", "value"), State("ds-output", "value"), State("ds-samples", "value"), State("ds-sites", "value"),
         State("ds-channels", "value"), State("ds-parameterization", "value"), State("ds-gamma-min", "value"), State("ds-gamma-max", "value"),
         State("ds-elapsed-time", "value"), State("ds-dt", "value"), State("ds-method", "value"), State("ds-preset", "value"),
         State("ds-num-traj", "value"), State("ds-initial-state", "value"), State("ds-j", "value"), State("ds-g", "value"),
         State("ds-seed", "value"), State("ds-order", "value"), State("ds-tdvp-sweeps", "value"), State("ds-tdvp-mode", "value"),
-        State("ds-parallel", "value"), State("ds-max-workers", "value"), prevent_initial_call=True,
+        State("ds-parallel", "value"), State("ds-max-workers", "value"),
+        prevent_initial_call=True,
     )
     def start_dataset_job(n_clicks, name, output, samples, sites, channels, parameterization, gamma_min, gamma_max, elapsed_time, dt, method, preset, num_traj, initial_state, j_coupling, transverse_field, seed, order, tdvp_sweeps, tdvp_mode, parallel_values, max_workers):
         if not n_clicks:
             return no_update, no_update
-
-        required = {
-            "Samples": samples, "Sites / qubits": sites, "γ minimum": gamma_min, "γ maximum": gamma_max,
-            "Elapsed time": elapsed_time, "dt": dt, "Trajectories": num_traj, "Ising J": j_coupling,
-            "Transverse field g": transverse_field, "Seed": seed, "Trotter order": order,
-            "TDVP sweeps": tdvp_sweeps, "CPU workers": max_workers,
-        }
-        missing = [label for label, value in required.items() if value is None]
-        if missing:
-            return no_update, "Invalid dataset configuration. Check: " + ", ".join(missing)
-
         try:
             gamma_min, gamma_max = float(gamma_min), float(gamma_max)
             elapsed_time, dt = float(elapsed_time), float(dt)
-            if gamma_min <= 0: return no_update, "γ minimum must be greater than zero."
-            if gamma_max <= gamma_min: return no_update, "γ maximum must be greater than γ minimum."
-            if elapsed_time <= 0: return no_update, "Elapsed time must be greater than zero."
-            if dt <= 0: return no_update, "dt must be greater than zero."
-            if dt > elapsed_time: return no_update, "dt cannot be larger than elapsed time."
-            if int(max_workers) < 1: return no_update, "CPU workers must be at least 1."
-
+            if gamma_min <= 0:
+                return no_update, "γ minimum must be greater than zero."
+            if gamma_max <= gamma_min:
+                return no_update, "γ maximum must be greater than γ minimum."
+            if elapsed_time <= 0 or dt <= 0 or dt > elapsed_time:
+                return no_update, "Check elapsed time and dt."
             config = {
-                "dataset_name": name, "output_path": output, "num_samples": int(samples), "num_sites": int(sites),
-                "channels": channels or [], "parameterization": parameterization, "gamma_min": gamma_min, "gamma_max": gamma_max,
-                "elapsed_time": elapsed_time, "dt": dt, "method": method, "preset": preset, "num_traj": int(num_traj),
-                "initial_state": initial_state, "j_coupling": float(j_coupling), "transverse_field": float(transverse_field),
-                "seed": int(seed), "order": int(order), "tdvp_sweeps": int(tdvp_sweeps), "tdvp_mode": tdvp_mode,
-                "parallel": "parallel" in (parallel_values or []), "max_workers": int(max_workers), "show_progress": False,
+                "dataset_name": name,
+                "output_path": output,
+                "num_samples": int(samples),
+                "num_sites": int(sites),
+                "channels": channels or [],
+                "parameterization": parameterization,
+                "gamma_min": gamma_min,
+                "gamma_max": gamma_max,
+                "elapsed_time": elapsed_time,
+                "dt": dt,
+                "method": method,
+                "preset": preset,
+                "num_traj": int(num_traj),
+                "initial_state": initial_state,
+                "j_coupling": float(j_coupling),
+                "transverse_field": float(transverse_field),
+                "seed": int(seed),
+                "order": int(order),
+                "tdvp_sweeps": int(tdvp_sweeps),
+                "tdvp_mode": tdvp_mode,
+                "parallel": "parallel" in (parallel_values or []),
+                "max_workers": int(max_workers),
+                "show_progress": False,
             }
         except (TypeError, ValueError) as exc:
             return no_update, f"Invalid dataset configuration: {exc}"
-
         job_id = JOB_MANAGER.submit("dataset", create_dataset_job, data_root=data_root, config=config)
         return {"job_id": job_id}, f"Dataset job queued · parallel={config['parallel']} · workers={config['max_workers']}"
 
@@ -622,10 +631,7 @@ def register_callbacks(app: Dash, *, data_root: str, output_root: str) -> None:
             return _empty_figure("Dataset preview"), f"ERROR: {exc}"
         figure = go.Figure()
         figure.add_trace(go.Scatter(x=preview["times"], y=preview["values"], mode="lines", name="Expectation value"))
-        figure.update_layout(
-            title=f"Sample {preview['sample_index']} · Observable {preview['observable_index']}",
-            xaxis_title="Time", yaxis_title="Expectation value", **PLOT_LAYOUT,
-        )
+        figure.update_layout(title=f"Sample {preview['sample_index']} · Observable {preview['observable_index']}", xaxis_title="Time", yaxis_title="Expectation value", **PLOT_LAYOUT)
         return figure, json.dumps(details, indent=2)
 
     @app.callback(
@@ -640,19 +646,13 @@ def register_callbacks(app: Dash, *, data_root: str, output_root: str) -> None:
         ]
         values = {option["value"] for option in options}
         selected = current_run if current_run in values else (options[0]["value"] if options else None)
-        leaderboard = go.Figure()
         leaderboard_rows = [row for row in runs if row["reconstruction_rmse"] is not None]
         leaderboard_rows.sort(key=lambda row: float(row["reconstruction_rmse"]))
+        figure = go.Figure()
         if leaderboard_rows:
-            leaderboard.add_trace(
-                go.Bar(
-                    x=[f"{row['model']} · {row['dataset']}" for row in leaderboard_rows],
-                    y=[float(row["reconstruction_rmse"]) for row in leaderboard_rows],
-                    name="Trajectory RMSE",
-                )
-            )
-        leaderboard.update_layout(title="Reconstruction leaderboard", xaxis_title="Run", yaxis_title="Mean trajectory RMSE", **PLOT_LAYOUT)
-        return options, selected, leaderboard
+            figure.add_trace(go.Bar(x=[f"{row['model']} · {row['dataset']}" for row in leaderboard_rows], y=[float(row["reconstruction_rmse"]) for row in leaderboard_rows], name="Trajectory RMSE"))
+        figure.update_layout(title="Reconstruction leaderboard", xaxis_title="Run", yaxis_title="Mean trajectory RMSE", **PLOT_LAYOUT)
+        return options, selected, figure
 
     @app.callback(
         Output("metric-recon-rmse", "children"), Output("metric-recon-mae", "children"), Output("metric-recon-max", "children"),
@@ -662,13 +662,11 @@ def register_callbacks(app: Dash, *, data_root: str, output_root: str) -> None:
     )
     def update_run_summary(run_dir):
         if not run_dir:
-            empty = _empty_figure("Training history")
-            return "—", "—", "—", "—", "—", empty, [], None
+            return "—", "—", "—", "—", "—", _empty_figure("Training history"), [], None
         try:
             details = load_run_details(run_dir)
         except Exception:
-            empty = _empty_figure("Training history")
-            return "—", "—", "—", "—", "—", empty, [], None
+            return "—", "—", "—", "—", "—", _empty_figure("Training history"), [], None
         metrics = details["metrics"]
         test_metrics = metrics.get("test_metrics", {}) or {}
         reconstruction = details["reconstruction"] or metrics.get("reconstruction", {})
@@ -711,21 +709,16 @@ def register_callbacks(app: Dash, *, data_root: str, output_root: str) -> None:
         figure = go.Figure()
         figure.add_trace(go.Scatter(x=sample["times"], y=sample["original"], mode="lines", name="Original"))
         figure.add_trace(go.Scatter(x=sample["times"], y=sample["reconstructed"], mode="lines", name="Reconstructed"))
-        figure.update_layout(
-            title=f"Dataset sample {sample['dataset_index']} · Observable {sample['observable_index']}",
-            xaxis_title="Time", yaxis_title="Expectation value", **PLOT_LAYOUT,
-        )
+        figure.update_layout(title=f"Dataset sample {sample['dataset_index']} · Observable {sample['observable_index']}", xaxis_title="Time", yaxis_title="Expectation value", **PLOT_LAYOUT)
         table = []
         for name, true_gamma, predicted_gamma in zip(sample["parameter_names"], sample["true_gamma"], sample["predicted_gamma"], strict=True):
             factor = max(float(predicted_gamma) / max(float(true_gamma), 1e-300), float(true_gamma) / max(float(predicted_gamma), 1e-300))
-            table.append(
-                {
-                    "parameter": name,
-                    "true_gamma": f"{float(true_gamma):.6e}",
-                    "predicted_gamma": f"{float(predicted_gamma):.6e}",
-                    "factor_error": f"{factor:.4f}",
-                }
-            )
+            table.append({
+                "parameter": name,
+                "true_gamma": f"{float(true_gamma):.6e}",
+                "predicted_gamma": f"{float(predicted_gamma):.6e}",
+                "factor_error": f"{factor:.4f}",
+            })
         return figure, table
 
 
@@ -735,6 +728,7 @@ def create_app(*, data_root: str | Path = "data/noise_datasets", output_root: st
     app.title = "QEL Twin Control Center"
     app.layout = create_layout(str(data_root), str(output_root))
     register_callbacks(app, data_root=str(data_root), output_root=str(output_root))
+    register_benchmark_callbacks(app, data_root=str(data_root), output_root=str(output_root))
     return app
 
 
