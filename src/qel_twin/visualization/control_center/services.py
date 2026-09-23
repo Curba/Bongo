@@ -760,3 +760,155 @@ def load_reconstruction_sample(sample_path: str | Path, observable_index: int) -
         "predicted_gamma": predicted_gamma,
         "true_gamma": true_gamma,
     }
+
+
+def reconstruction_sample_map(run_dir: str | Path) -> dict[int, Path]:
+    """Return {dataset_index: sample_file} for one completed run."""
+    root = Path(run_dir) / "reconstruction"
+    samples: dict[int, Path] = {}
+    if not root.exists():
+        return samples
+
+    for sample_file in sorted(root.glob("sample_*.npz")):
+        try:
+            with np.load(sample_file, allow_pickle=False) as payload:
+                dataset_index = int(np.asarray(payload["dataset_index"]).item())
+            samples[dataset_index] = sample_file
+        except Exception:
+            continue
+    return samples
+
+
+def common_reconstruction_samples(run_dirs: list[str] | tuple[str, ...]) -> list[int]:
+    """Dataset indices that have saved reconstructions in every selected run."""
+    run_dirs = [str(value) for value in run_dirs if value]
+    if not run_dirs:
+        return []
+
+    sample_sets = [set(reconstruction_sample_map(run_dir)) for run_dir in run_dirs]
+    if not sample_sets or any(not values for values in sample_sets):
+        return []
+
+    return sorted(set.intersection(*sample_sets))
+
+
+def _full_reconstruction_sample(sample_path: str | Path) -> dict[str, Any]:
+    with np.load(sample_path, allow_pickle=False) as payload:
+        return {
+            "times": np.asarray(payload["times"], dtype=np.float64),
+            "original": np.asarray(payload["original"], dtype=np.float64),
+            "reconstructed": np.asarray(payload["reconstructed"], dtype=np.float64),
+            "dataset_index": int(np.asarray(payload["dataset_index"]).item()),
+            "parameter_names": [str(value) for value in payload["parameter_names"].tolist()],
+            "predicted_gamma": np.asarray(payload["predicted_gamma"], dtype=np.float64),
+            "true_gamma": np.asarray(payload["true_gamma"], dtype=np.float64),
+        }
+
+
+def _observable_map_from_run(run_dir: str | Path) -> dict[str, dict[int, int]]:
+    """
+    Recover observable -> array-index mapping from the dataset metadata recorded
+    by the run. The returned shape is e.g. {"x": {0: 0, 1: 1}, ...}.
+    """
+    metrics_path = Path(run_dir) / "metrics.json"
+    if not metrics_path.exists():
+        return {}
+
+    try:
+        metrics = json.loads(metrics_path.read_text(encoding="utf-8"))
+        dataset_path = metrics.get("dataset_path")
+        if not dataset_path:
+            return {}
+        dataset = NoiseDataset.load(dataset_path)
+        descriptions = list(dataset.metadata.get("observables", []))
+    except Exception:
+        return {}
+
+    mapping: dict[str, dict[int, int]] = {}
+    for index, description in enumerate(descriptions):
+        try:
+            gate = str(description["gate"]).lower()
+            sites = description["sites"]
+            if isinstance(sites, (int, np.integer)):
+                site_values = [int(sites)]
+            else:
+                site_values = [int(value) for value in sites]
+            if len(site_values) == 1:
+                mapping.setdefault(gate, {})[site_values[0]] = index
+        except Exception:
+            continue
+    return mapping
+
+
+def load_reconstruction_comparison(
+    *,
+    run_dirs: list[str] | tuple[str, ...],
+    dataset_index: int,
+) -> dict[str, Any]:
+    """
+    Load the same reconstructed held-out sample from multiple model runs.
+
+    No simulation is rerun here: this consumes the sample_*.npz files already
+    written by evaluate_run_reconstruction().
+    """
+    run_dirs = [str(value) for value in run_dirs if value]
+    if not run_dirs:
+        raise ValueError("No run directories were selected.")
+
+    reference_times: np.ndarray | None = None
+    reference_original: np.ndarray | None = None
+    models: list[dict[str, Any]] = []
+
+    for run_dir_value in run_dirs:
+        run_dir = Path(run_dir_value)
+        sample_file = reconstruction_sample_map(run_dir).get(int(dataset_index))
+        if sample_file is None:
+            raise FileNotFoundError(
+                f"Run {run_dir} has no saved reconstruction for dataset sample {dataset_index}."
+            )
+
+        sample = _full_reconstruction_sample(sample_file)
+        if reference_times is None:
+            reference_times = sample["times"]
+            reference_original = sample["original"]
+        else:
+            if reference_times.shape != sample["times"].shape or not np.allclose(reference_times, sample["times"]):
+                raise ValueError(f"Run {run_dir} uses a different reconstruction time grid.")
+            if reference_original.shape != sample["original"].shape or not np.allclose(
+                reference_original, sample["original"], rtol=1e-9, atol=1e-11
+            ):
+                raise ValueError(
+                    f"Run {run_dir} does not contain the same reference trajectory for sample {dataset_index}."
+                )
+
+        metrics_path = run_dir / "metrics.json"
+        metrics = {}
+        if metrics_path.exists():
+            try:
+                metrics = json.loads(metrics_path.read_text(encoding="utf-8"))
+            except Exception:
+                metrics = {}
+
+        label = str(metrics.get("model_name", run_dir.parent.name))
+        diff = sample["reconstructed"] - sample["original"]
+        models.append(
+            {
+                "label": label,
+                "run_dir": str(run_dir),
+                "reconstructed": sample["reconstructed"],
+                "predicted_gamma": sample["predicted_gamma"],
+                "trajectory_rmse": float(np.sqrt(np.mean(np.square(diff)))),
+                "trajectory_mae": float(np.mean(np.abs(diff))),
+            }
+        )
+
+    assert reference_times is not None
+    assert reference_original is not None
+    return {
+        "dataset_index": int(dataset_index),
+        "times": reference_times,
+        "original": reference_original,
+        "observable_map": _observable_map_from_run(run_dirs[0]),
+        "models": models,
+    }
+

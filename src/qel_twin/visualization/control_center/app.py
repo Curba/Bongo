@@ -8,6 +8,7 @@ from typing import Any
 
 import numpy as np
 import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 from dash import Dash, Input, Output, State, dash_table, dcc, html, no_update
 
 from .benchmark import create_benchmark_tab, register_benchmark_callbacks
@@ -17,8 +18,10 @@ from .services import (
     create_dataset_job,
     dataset_details,
     load_dataset_preview,
+    load_reconstruction_comparison,
     load_reconstruction_sample,
     load_run_details,
+    common_reconstruction_samples,
     scan_datasets,
     scan_runs,
     train_model_job,
@@ -431,13 +434,87 @@ def _results_tab():
                         ],
                         className="panel",
                     ),
+                    html.Div(
+                        [
+                            html.H2("Cross-model Trajectory Comparison"),
+                            html.P(
+                                "Overlay the real held-out trajectory with reconstructions from multiple trained models "
+                                "for the same dataset sample. The sample selector only shows samples reconstructed by all selected runs.",
+                                className="section-copy",
+                            ),
+                            html.Div(
+                                [
+                                    _field(
+                                        "Models / runs",
+                                        dcc.Dropdown(
+                                            id="comparison-runs",
+                                            options=[],
+                                            value=[],
+                                            multi=True,
+                                            placeholder="Select LSTM, CNN, classical models, ...",
+                                        ),
+                                    ),
+                                    _field(
+                                        "Common reconstructed sample",
+                                        dcc.Dropdown(
+                                            id="comparison-sample",
+                                            options=[],
+                                            clearable=False,
+                                            placeholder="Select a common sample",
+                                        ),
+                                    ),
+                                    _field(
+                                        "Site / qubit",
+                                        _number("comparison-site", 0, min_value=0, step=1),
+                                        "Plots X, Y and Z for this site when those observables are available.",
+                                    ),
+                                ],
+                                className="preview-controls result-preview-controls",
+                            ),
+                            html.Div(id="comparison-status", className="field-help"),
+                            dcc.Graph(
+                                id="comparison-trajectory-graph",
+                                figure=_empty_figure("Cross-model trajectory comparison"),
+                                config={
+                                    "displaylogo": False,
+                                    "toImageButtonOptions": {
+                                        "format": "png",
+                                        "filename": "trajectory_model_comparison",
+                                        "scale": 3,
+                                    },
+                                },
+                            ),
+                            html.H3("Selected-sample reconstruction error"),
+                            dash_table.DataTable(
+                                id="comparison-metrics-table",
+                                columns=[
+                                    {"name": "Model", "id": "model"},
+                                    {"name": "Trajectory RMSE", "id": "trajectory_rmse"},
+                                    {"name": "Trajectory MAE", "id": "trajectory_mae"},
+                                    {"name": "Run", "id": "run"},
+                                ],
+                                data=[],
+                                sort_action="native",
+                                style_table={"overflowX": "auto"},
+                                style_cell={
+                                    "backgroundColor": "transparent",
+                                    "color": "#d9e3f0",
+                                    "border": "1px solid #233044",
+                                    "fontFamily": "Inter, sans-serif",
+                                    "fontSize": 12,
+                                    "padding": "10px",
+                                },
+                                style_header={"backgroundColor": "#111a28", "fontWeight": 700, "color": "#f6f8fb"},
+                            ),
+                        ],
+                        className="panel",
+                    ),
                 ],
                 className="results-stack",
             )
         ],
         className="tab-content",
     )
-
 
 def create_layout(data_root: str, output_root: str):
     return html.Div(
@@ -720,6 +797,169 @@ def register_callbacks(app: Dash, *, data_root: str, output_root: str) -> None:
                 "factor_error": f"{factor:.4f}",
             })
         return figure, table
+
+
+    @app.callback(
+        Output("comparison-runs", "options"),
+        Output("comparison-runs", "value"),
+        Input("catalog-poller", "n_intervals"),
+        Input("refresh-runs-btn", "n_clicks"),
+        State("comparison-runs", "value"),
+    )
+    def refresh_comparison_runs(_tick, _clicks, current_runs):
+        runs = [row for row in scan_runs(output_root) if int(row.get("reconstruction_samples") or 0) > 0]
+        options = [
+            {
+                "label": f"{row['model']} · {row['dataset']} · RMSE={_format_metric(row['reconstruction_rmse'])}",
+                "value": row["run_dir"],
+            }
+            for row in runs
+        ]
+        valid = {option["value"] for option in options}
+        selected = [value for value in (current_runs or []) if value in valid]
+
+        if not selected:
+            preferred_names = ("lstm", "bilstm", "gradient_boosting", "gaussian_process", "cnn2d")
+            by_name = {}
+            for row in runs:
+                by_name.setdefault(str(row["model"]).lower(), row["run_dir"])
+            selected = [by_name[name] for name in preferred_names if name in by_name][:5]
+            if not selected:
+                selected = [option["value"] for option in options[:4]]
+
+        return options, selected
+
+    @app.callback(
+        Output("comparison-sample", "options"),
+        Output("comparison-sample", "value"),
+        Output("comparison-status", "children"),
+        Input("comparison-runs", "value"),
+        State("comparison-sample", "value"),
+    )
+    def refresh_comparison_samples(run_dirs, current_sample):
+        run_dirs = list(run_dirs or [])
+        if not run_dirs:
+            return [], None, "Select at least one model run."
+
+        try:
+            samples = common_reconstruction_samples(run_dirs)
+        except Exception as exc:
+            return [], None, f"Could not inspect reconstruction samples: {exc}"
+
+        options = [{"label": f"Dataset sample {index}", "value": int(index)} for index in samples]
+        values = {option["value"] for option in options}
+        selected = int(current_sample) if current_sample in values else (options[0]["value"] if options else None)
+
+        if not options:
+            return [], None, (
+                "No common reconstructed sample exists across these runs. "
+                "Re-run reconstruction for the same held-out samples or increase the reconstruction sample count."
+            )
+        return options, selected, f"{len(options)} common reconstructed sample(s)."
+
+    @app.callback(
+        Output("comparison-trajectory-graph", "figure"),
+        Output("comparison-metrics-table", "data"),
+        Output("comparison-status", "children", allow_duplicate=True),
+        Input("comparison-runs", "value"),
+        Input("comparison-sample", "value"),
+        Input("comparison-site", "value"),
+        prevent_initial_call=True,
+    )
+    def update_model_comparison(run_dirs, dataset_index, site):
+        run_dirs = list(run_dirs or [])
+        if not run_dirs or dataset_index is None:
+            return _empty_figure("Cross-model trajectory comparison"), [], "Select runs and a common sample."
+
+        try:
+            comparison = load_reconstruction_comparison(
+                run_dirs=run_dirs,
+                dataset_index=int(dataset_index),
+            )
+        except Exception as exc:
+            return _empty_figure(f"Comparison error: {exc}"), [], f"Comparison failed: {exc}"
+
+        time = np.asarray(comparison["times"], dtype=np.float64)
+        original = np.asarray(comparison["original"], dtype=np.float64)
+        site = max(0, int(site or 0))
+
+        observable_map = comparison.get("observable_map", {}) or {}
+        panel_specs = []
+        for channel in ("x", "y", "z"):
+            channel_map = observable_map.get(channel, {}) or {}
+            if site in channel_map:
+                panel_specs.append((channel.upper(), int(channel_map[site])))
+
+        if not panel_specs:
+            # Safe fallback for legacy reconstruction files without dataset metadata.
+            if original.shape[0] % 3 == 0:
+                num_sites = original.shape[0] // 3
+                site = min(site, num_sites - 1)
+                panel_specs = [
+                    ("X", site),
+                    ("Y", num_sites + site),
+                    ("Z", 2 * num_sites + site),
+                ]
+            else:
+                panel_specs = [("Observable 0", 0)]
+
+        figure = make_subplots(
+            rows=len(panel_specs),
+            cols=1,
+            shared_xaxes=True,
+            vertical_spacing=0.08,
+            subplot_titles=[f"⟨{name}_{site + 1}(t)⟩" if len(name) == 1 else name for name, _ in panel_specs],
+        )
+
+        for row_index, (_name, observable_index) in enumerate(panel_specs, start=1):
+            figure.add_trace(
+                go.Scatter(
+                    x=time,
+                    y=original[observable_index],
+                    mode="lines",
+                    name="Real / reference",
+                    legendgroup="reference",
+                    showlegend=row_index == 1,
+                    line={"width": 4},
+                ),
+                row=row_index,
+                col=1,
+            )
+
+            for model in comparison["models"]:
+                reconstructed = np.asarray(model["reconstructed"], dtype=np.float64)
+                figure.add_trace(
+                    go.Scatter(
+                        x=time,
+                        y=reconstructed[observable_index],
+                        mode="lines",
+                        name=model["label"],
+                        legendgroup=model["run_dir"],
+                        showlegend=row_index == 1,
+                    ),
+                    row=row_index,
+                    col=1,
+                )
+
+        figure.update_xaxes(title_text="Time", row=len(panel_specs), col=1)
+        figure.update_yaxes(title_text="Expectation value")
+        figure.update_layout(
+            title=f"Dataset sample {int(dataset_index)} · site {site + 1}",
+            height=max(420, 240 * len(panel_specs)),
+            **PLOT_LAYOUT,
+        )
+
+        table = [
+            {
+                "model": model["label"],
+                "trajectory_rmse": _format_metric(model["trajectory_rmse"]),
+                "trajectory_mae": _format_metric(model["trajectory_mae"]),
+                "run": Path(model["run_dir"]).name,
+            }
+            for model in sorted(comparison["models"], key=lambda row: row["trajectory_rmse"])
+        ]
+
+        return figure, table, f"Comparing {len(comparison['models'])} model(s) on dataset sample {int(dataset_index)}."
 
 
 def create_app(*, data_root: str | Path = "data/noise_datasets", output_root: str | Path = "outputs/noise_ml_runs") -> Dash:
